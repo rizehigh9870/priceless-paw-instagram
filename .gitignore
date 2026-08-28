@@ -1,0 +1,13 @@
+# アクセストークンなどの機密情報は絶対にコミットしない
+秘密情報_絶対共有しない/
+*.env
+.env
+access_token.txt
+
+# OS・エディタが自動生成するファイル
+.DS_Store
+Thumbs.db
+
+# Pythonの実行キャッシュ
+__pycache__/
+*.pyc

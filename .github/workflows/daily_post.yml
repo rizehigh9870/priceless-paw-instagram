@@ -1,0 +1,40 @@
+name: Instagram 自動投稿
+
+on:
+  schedule:
+    # 毎日 JST 9:00 に実行（UTC 0:00 = JST 9:00）
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}  # 手動実行もできるようにしておく
+
+# 投稿完了フォルダの移動をコミット・プッシュするために書き込み権限を付与
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 必要なパッケージをインストール
+        run: pip install requests
+
+      - name: 投稿スクリプトを実行
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+        run: python scripts/post_to_instagram.py
+
+      - name: 変更があればコミット・プッシュ（投稿完了フォルダの移動を反映）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: 投稿完了フォルダを■済へ移動 [auto]"
+          git push
