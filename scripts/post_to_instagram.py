@@ -2,7 +2,7 @@
 Priceless PAW Instagram 自動投稿スクリプト
 
 仕組み：
-1. 「インスタ-投稿フォルダ」直下から、今日の日付(YYYY-MM-DD)で始まるフォルダを探す
+1. リポジトリ直下の「インスタ-投稿フォルダ」から、今日の日付(YYYY-MM-DD)で始まるフォルダを探す
 2. 見つからなければ何もせず終了（スキップ）
 3. 見つかったら、フォルダ内の画像・caption.txt・product_url.txtを読み込む
 4. 画像をGitHubのRaw URL経由でInstagramに渡し、投稿を作成・公開する
@@ -25,7 +25,8 @@ from pathlib import Path
 # ============================================================
 # 設定
 # ============================================================
-BASE_DIR = Path(__file__).resolve().parent.parent  # インスタ-投稿フォルダ
+REPO_ROOT = Path(__file__).resolve().parent.parent  # priceless-paw-instagram（リポジトリルート）
+BASE_DIR = REPO_ROOT / "インスタ-投稿フォルダ"
 DONE_DIR = BASE_DIR / "■済"
 GRAPH_API_VERSION = "v21.0"
 GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
@@ -51,7 +52,7 @@ def find_today_folder() -> Path | None:
     for entry in sorted(BASE_DIR.iterdir()):
         if not entry.is_dir():
             continue
-        if entry.name in ("■済", "scripts", ".github", ".git"):
+        if entry.name == "■済":
             continue
         if entry.name.startswith(today):
             return entry
@@ -74,13 +75,10 @@ def load_text_file(path: Path) -> str | None:
 
 
 def build_raw_url(image_path: Path) -> str:
-    """GitHubリポジトリ上のRaw URLを組み立てる"""
+    """GitHubリポジトリ上のRaw URLを組み立てる（リポジトリルートからの相対パスを使う）"""
     repo = os.environ["GITHUB_REPOSITORY"]  # 例: rizehigh9870/priceless-paw-instagram
     branch = os.environ.get("GITHUB_REF_NAME", "main")
-    rel_path = image_path.relative_to(BASE_DIR.parent).as_posix()
-    # BASE_DIR.parent はリポジトリのルート（インスタ-投稿フォルダの親）だが
-    # 実際にはリポジトリ直下が「インスタ-投稿フォルダ」自体なので BASE_DIR を基準にする
-    rel_path = image_path.relative_to(BASE_DIR).as_posix()
+    rel_path = image_path.relative_to(REPO_ROOT).as_posix()
     from urllib.parse import quote
     encoded_path = quote(rel_path)
     return f"https://raw.githubusercontent.com/{repo}/{branch}/{encoded_path}"
