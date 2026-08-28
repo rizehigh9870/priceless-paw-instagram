@@ -2,8 +2,8 @@ name: Instagram 自動投稿
 
 on:
   schedule:
-    # 毎日 JST 9:00 に実行（UTC 0:00 = JST 9:00）
-    - cron: "0 0 * * *"
+    # 毎日 JST 10:00 に実行（UTC 1:00 = JST 10:00）
+    - cron: "0 1 * * *"
   workflow_dispatch: {}  # 手動実行もできるようにしておく
 
 # 投稿完了フォルダの移動をコミット・プッシュするために書き込み権限を付与
