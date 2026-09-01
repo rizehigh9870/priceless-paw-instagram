@@ -6,7 +6,7 @@ Priceless PAW Instagram 自動投稿スクリプト
 2. 見つからなければ何もせず終了（スキップ）
 3. 見つかったら、フォルダ内の画像・caption.txt・product_url.txtを読み込む
 4. 画像をGitHubのRaw URL経由でInstagramに渡し、投稿を作成・公開する
-5. 投稿が成功したら、そのフォルダを「■済」配下に移動する
+5. 投稿が成功したら、そのフォルダを「■済/YYYY-MM/」配下に移動する（月ごとに整理）
 
 必要な環境変数（GitHub Actions の Secrets から渡される）:
 - IG_ACCESS_TOKEN         : Instagram Graph API アクセストークン
@@ -159,8 +159,11 @@ def publish_container(creation_id: str, access_token: str) -> dict:
 
 
 def move_to_done(folder: Path) -> None:
-    DONE_DIR.mkdir(exist_ok=True)
-    destination = DONE_DIR / folder.name
+    """投稿完了フォルダを ■済/YYYY-MM/ 配下へ移動する（月ごとに整理）"""
+    # フォルダ名の先頭7文字（YYYY-MM）を月別サブフォルダ名として使う
+    month_dir = DONE_DIR / folder.name[:7]
+    month_dir.mkdir(parents=True, exist_ok=True)
+    destination = month_dir / folder.name
     if destination.exists():
         log(f"警告: 移動先に同名フォルダが既に存在するため移動をスキップします: {destination}")
         return
