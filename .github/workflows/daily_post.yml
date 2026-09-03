@@ -38,6 +38,7 @@ jobs:
         run: python scripts/post_to_instagram.py
 
       - name: Threadsへ投稿
+        id: threads_post
         # Threads用Secrets未設定の場合はスクリプト内でスキップされる。
         # Threads投稿が失敗してもInstagram投稿の結果（フォルダ移動）には影響させないため、
         # ここではワークフロー全体を失敗させない。
@@ -52,15 +53,27 @@ jobs:
         if: steps.ig_post.outcome == 'success'
         run: python scripts/move_completed_folder.py
 
+      - name: 申し送りログに追記（AIカンパニー構想 /log 運用）
+        # 「ログ追記が終わるまでタスク完了とみなさない」という完了条件のためのステップ。
+        # if: always() でInstagram/Threadsの成否によらず必ず実行する。
+        # このステップが失敗した場合はタスク未完了とみなし、ジョブ全体も失敗になる
+        # （continue-on-error を付けないのは意図的）。
+        if: always()
+        env:
+          IG_OUTCOME: ${{ steps.ig_post.outcome }}
+          THREADS_OUTCOME: ${{ steps.threads_post.outcome }}
+        run: python scripts/write_daily_log.py
+
       - name: Instagram投稿が失敗していた場合はジョブ全体を失敗扱いにする
         # continue-on-error で握りつぶした失敗を、ここで明示的にActionsの実行結果へ反映する
         if: steps.ig_post.outcome == 'failure'
         run: exit 1
 
-      - name: 変更があればコミット・プッシュ（投稿完了フォルダの移動を反映）
+      - name: 変更があればコミット・プッシュ（投稿完了フォルダの移動・ログ追記を反映）
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore: 投稿完了フォルダを■済へ移動 [auto]"
+          git diff --staged --quiet || git commit -m "chore: 投稿完了フォルダの移動・申し送りログの追記 [auto]"
           git push

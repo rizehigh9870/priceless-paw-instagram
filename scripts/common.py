@@ -21,6 +21,7 @@ from urllib.parse import quote
 REPO_ROOT = Path(__file__).resolve().parent.parent  # priceless-paw-instagram（リポジトリルート）
 BASE_DIR = REPO_ROOT / "インスタ-投稿フォルダ"
 DONE_DIR = BASE_DIR / "■済"
+LOG_DIR = REPO_ROOT / "log"
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
@@ -86,6 +87,37 @@ def generate_caption(product_url: str) -> str:
         f"{product_url}\n\n"
         "#PricelessPAW"
     )
+
+
+def append_daily_log(content: str, result: str, next_action: str, folder_name: str | None = None) -> None:
+    """
+    AIカンパニー構想の申し送りログに1日1エントリを追記する（/log/YYYY-MM.md、追記のみ）。
+
+    「ログ追記が終わるまでタスク完了とみなさない」という完了条件の実体がこの関数。
+    daily_post.yml の最後で必ず呼ばれる想定。
+
+    引数:
+        content: 「内容」欄に書く1行（例: 対象フォルダ名や投稿商品名）
+        result: 「結果」欄に書く1行（例: "Instagram成功 / Threads成功"）
+        next_action: 「次に必要なこと」欄に書く1行（無ければ "なし"）
+        folder_name: 見出しに添える補足（省略時は content をそのまま使う）
+    """
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    today = datetime.now(JST)
+    log_path = LOG_DIR / f"{today.strftime('%Y-%m')}.md"
+
+    heading_suffix = f" {folder_name}" if folder_name else ""
+    entry = (
+        f"## {today.strftime('%Y-%m-%d')} 投稿{heading_suffix}\n"
+        f"- 内容: {content}\n"
+        f"- 結果: {result}\n"
+        f"- 次に必要なこと: {next_action}\n\n"
+    )
+
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(entry)
+
+    log(f"申し送りログに追記しました: {log_path}")
 
 
 def move_to_done(folder: Path) -> None:
