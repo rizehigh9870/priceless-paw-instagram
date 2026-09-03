@@ -27,11 +27,35 @@ jobs:
       - name: 必要なパッケージをインストール
         run: pip install requests
 
-      - name: 投稿スクリプトを実行
+      - name: Instagramへ投稿
+        id: ig_post
+        # Instagram投稿が失敗しても、後続のThreads投稿ステップは実行させたい
+        # （移動ステップ側でInstagramの成否を見て判断するため）
+        continue-on-error: true
         env:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
         run: python scripts/post_to_instagram.py
+
+      - name: Threadsへ投稿
+        # Threads用Secrets未設定の場合はスクリプト内でスキップされる。
+        # Threads投稿が失敗してもInstagram投稿の結果（フォルダ移動）には影響させないため、
+        # ここではワークフロー全体を失敗させない。
+        continue-on-error: true
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+        run: python scripts/post_to_threads.py
+
+      - name: 投稿完了フォルダを移動
+        # Instagram投稿が成功した場合のみ移動する（Threadsの成否は問わない）
+        if: steps.ig_post.outcome == 'success'
+        run: python scripts/move_completed_folder.py
+
+      - name: Instagram投稿が失敗していた場合はジョブ全体を失敗扱いにする
+        # continue-on-error で握りつぶした失敗を、ここで明示的にActionsの実行結果へ反映する
+        if: steps.ig_post.outcome == 'failure'
+        run: exit 1
 
       - name: 変更があればコミット・プッシュ（投稿完了フォルダの移動を反映）
         run: |

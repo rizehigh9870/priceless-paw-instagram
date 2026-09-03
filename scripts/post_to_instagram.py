@@ -12,90 +12,34 @@ Priceless PAW Instagram 自動投稿スクリプト
 - IG_ACCESS_TOKEN         : Instagram Graph API アクセストークン
 - IG_BUSINESS_ACCOUNT_ID  : InstagramビジネスアカウントID
 - GITHUB_REPOSITORY       : "owner/repo" 形式（GitHub Actionsが自動で渡す）
+
+Threadsへの投稿について：
+Instagram投稿は「シェア先」設定でアプリ/Web UIから投稿した場合のみThreadsへ自動クロスポストされる。
+Graph API（本スクリプト）経由の投稿にはこのクロスポスト機能が適用されないため、
+Threadsへの投稿は別スクリプト（post_to_threads.py）が担当する。
+
+本スクリプトは投稿完了フォルダの「■済」への移動を行わない
+（daily_post.yml で post_to_instagram.py → post_to_threads.py → move_completed_folder.py
+  の順に実行し、両方の投稿処理が終わった後にまとめて移動する）。
 """
 
-import os
 import sys
 import time
-import shutil
 import requests
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+import os
 
-# ============================================================
-# 設定
-# ============================================================
-REPO_ROOT = Path(__file__).resolve().parent.parent  # priceless-paw-instagram（リポジトリルート）
-BASE_DIR = REPO_ROOT / "インスタ-投稿フォルダ"
-DONE_DIR = BASE_DIR / "■済"
+from common import (
+    find_today_folder,
+    load_images,
+    load_text_file,
+    build_raw_url,
+    generate_caption,
+    log,
+    get_today_str,
+)
+
 GRAPH_API_VERSION = "v21.0"
 GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
-
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-
-# 日本時間(JST)で「今日」の日付を取得する
-JST = timezone(timedelta(hours=9))
-
-
-def log(message: str) -> None:
-    timestamp = datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] {message}")
-
-
-def get_today_str() -> str:
-    return datetime.now(JST).strftime("%Y-%m-%d")
-
-
-def find_today_folder() -> Path | None:
-    """今日の日付で始まるフォルダを「インスタ-投稿フォルダ」直下から探す"""
-    today = get_today_str()
-    for entry in sorted(BASE_DIR.iterdir()):
-        if not entry.is_dir():
-            continue
-        if entry.name == "■済":
-            continue
-        if entry.name.startswith(today):
-            return entry
-    return None
-
-
-def load_images(folder: Path) -> list[Path]:
-    """フォルダ内の画像ファイルをファイル名の昇順で取得"""
-    images = [
-        p for p in folder.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    return sorted(images, key=lambda p: p.name)
-
-
-def load_text_file(path: Path) -> str | None:
-    if not path.exists():
-        return None
-    return path.read_text(encoding="utf-8").strip()
-
-
-def build_raw_url(image_path: Path) -> str:
-    """GitHubリポジトリ上のRaw URLを組み立てる（リポジトリルートからの相対パスを使う）"""
-    repo = os.environ["GITHUB_REPOSITORY"]  # 例: rizehigh9870/priceless-paw-instagram
-    branch = os.environ.get("GITHUB_REF_NAME", "main")
-    rel_path = image_path.relative_to(REPO_ROOT).as_posix()
-    from urllib.parse import quote
-    encoded_path = quote(rel_path)
-    return f"https://raw.githubusercontent.com/{repo}/{branch}/{encoded_path}"
-
-
-def generate_caption(product_url: str) -> str:
-    """
-    caption.txt が無い場合の簡易フォールバック。
-    本来は商品ページの情報を取得して生成するのが望ましいが、
-    最低限のフォールバックとして商品URLのみ案内する文言を返す。
-    """
-    return (
-        "🐾Priceless PAWからの新着アイテムです🐾\n\n"
-        "詳しくはプロフィールのリンクからショップをご覧ください🔍\n\n"
-        f"{product_url}\n\n"
-        "#PricelessPAW"
-    )
 
 
 def create_media_container(image_url: str, is_carousel_item: bool, access_token: str) -> str:
@@ -156,19 +100,6 @@ def publish_container(creation_id: str, access_token: str) -> dict:
     resp = requests.post(url, data=payload, timeout=30)
     resp.raise_for_status()
     return resp.json()
-
-
-def move_to_done(folder: Path) -> None:
-    """投稿完了フォルダを ■済/YYYY-MM/ 配下へ移動する（月ごとに整理）"""
-    # フォルダ名の先頭7文字（YYYY-MM）を月別サブフォルダ名として使う
-    month_dir = DONE_DIR / folder.name[:7]
-    month_dir.mkdir(parents=True, exist_ok=True)
-    destination = month_dir / folder.name
-    if destination.exists():
-        log(f"警告: 移動先に同名フォルダが既に存在するため移動をスキップします: {destination}")
-        return
-    shutil.move(str(folder), str(destination))
-    log(f"投稿完了フォルダを移動しました: {destination}")
 
 
 def main() -> int:
@@ -233,7 +164,6 @@ def main() -> int:
             log(f"レスポンス内容: {e.response.text}")
         return 1
 
-    move_to_done(folder)
     return 0
 
 
