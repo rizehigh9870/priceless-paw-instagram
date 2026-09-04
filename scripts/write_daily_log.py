@@ -12,9 +12,10 @@ AIカンパニー構想の完了条件「ログ追記が終わるまでタスク
 投稿自体が成功していてもログが残らなければ申し送りが途切れるため、
 必ず気づけるようにする。
 
-必要な環境変数（GitHub Actions の steps.<id>.outcome から渡す）:
+必要な環境変数（GitHub Actions の steps.<id>.outcome / steps.<id>.outputs から渡す）:
 - IG_OUTCOME      : "success" / "failure" / "skipped" のいずれか
 - THREADS_OUTCOME : "success" / "failure" / "skipped" のいずれか
+- POSTED_FOLDER   : move_completed_folder.py が移動したフォルダ名（未設定なら空文字）
 """
 
 import os
@@ -35,12 +36,17 @@ def describe(name: str, outcome: str | None) -> str:
 
 
 def main() -> int:
-    folder = find_today_folder()
     # move_completed_folder.py が成功していればこの時点で既に ■済 へ移動済みのため、
-    # 「今日のフォルダ」はもう見つからないのが正常系。フォルダ名はワークフロー側から
-    # 環境変数で受け取れないため、見つかった場合はその名前を、見つからない場合は
-    # 「対象フォルダなし（既に移動済み、または当日投稿予定なし）」を内容とする。
-    folder_label = folder.name if folder else "（対象フォルダなし。移動済み、または当日投稿予定なし）"
+    # 「今日のフォルダ」を再探索しても見つからないのが正常系。移動前のフォルダ名は
+    # move_completed_folder.py が $GITHUB_OUTPUT 経由で渡してくれるので、まずそれを使う。
+    posted_folder = os.environ.get("POSTED_FOLDER", "").strip()
+    if posted_folder:
+        folder_label = posted_folder
+    else:
+        # POSTED_FOLDER が無い場合（移動が行われなかった等）は、念のため今日のフォルダを
+        # 直接探してみる。それでも見つからなければ本当に対象が無かったとみなす。
+        folder = find_today_folder()
+        folder_label = folder.name if folder else "（対象フォルダなし。移動済み、または当日投稿予定なし）"
 
     ig_outcome = os.environ.get("IG_OUTCOME")
     threads_outcome = os.environ.get("THREADS_OUTCOME")

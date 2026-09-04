@@ -49,6 +49,7 @@ jobs:
         run: python scripts/post_to_threads.py
 
       - name: 投稿完了フォルダを移動
+        id: move_folder
         # Instagram投稿が成功した場合のみ移動する（Threadsの成否は問わない）
         if: steps.ig_post.outcome == 'success'
         run: python scripts/move_completed_folder.py
@@ -62,6 +63,7 @@ jobs:
         env:
           IG_OUTCOME: ${{ steps.ig_post.outcome }}
           THREADS_OUTCOME: ${{ steps.threads_post.outcome }}
+          POSTED_FOLDER: ${{ steps.move_folder.outputs.posted_folder }}
         run: python scripts/write_daily_log.py
 
       - name: Instagram投稿が失敗していた場合はジョブ全体を失敗扱いにする
