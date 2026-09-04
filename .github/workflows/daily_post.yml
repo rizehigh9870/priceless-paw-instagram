@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Pythonをセットアップ
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -48,6 +48,18 @@ jobs:
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
         run: python scripts/post_to_threads.py
 
+      - name: Instagramストーリーズへ投稿
+        id: story_post
+        # ストーリーズ投稿はフィード投稿・Threads投稿と独立したメディアのため、
+        # 失敗してもフォルダ移動やジョブ全体には影響させない。
+        # ★リンクスタンプはGraph API非対応のため画像投稿のみ行う。
+        #   リンクスタンプの追加は運用者がInstagramアプリで毎日手動で行う（申し送りログにも記載）。
+        continue-on-error: true
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+        run: python scripts/post_to_story.py
+
       - name: 投稿完了フォルダを移動
         id: move_folder
         # Instagram投稿が成功した場合のみ移動する（Threadsの成否は問わない）
@@ -63,6 +75,7 @@ jobs:
         env:
           IG_OUTCOME: ${{ steps.ig_post.outcome }}
           THREADS_OUTCOME: ${{ steps.threads_post.outcome }}
+          STORY_OUTCOME: ${{ steps.story_post.outcome }}
           POSTED_FOLDER: ${{ steps.move_folder.outputs.posted_folder }}
         run: python scripts/write_daily_log.py
 

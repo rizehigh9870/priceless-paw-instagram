@@ -15,6 +15,7 @@ AIカンパニー構想の完了条件「ログ追記が終わるまでタスク
 必要な環境変数（GitHub Actions の steps.<id>.outcome / steps.<id>.outputs から渡す）:
 - IG_OUTCOME      : "success" / "failure" / "skipped" のいずれか
 - THREADS_OUTCOME : "success" / "failure" / "skipped" のいずれか
+- STORY_OUTCOME   : "success" / "failure" / "skipped" のいずれか（ストーリーズ投稿）
 - POSTED_FOLDER   : move_completed_folder.py が移動したフォルダ名（未設定なら空文字）
 """
 
@@ -50,16 +51,22 @@ def main() -> int:
 
     ig_outcome = os.environ.get("IG_OUTCOME")
     threads_outcome = os.environ.get("THREADS_OUTCOME")
+    story_outcome = os.environ.get("STORY_OUTCOME")
 
     result = ", ".join([
         describe("Instagram投稿", ig_outcome),
         describe("Threads投稿", threads_outcome),
+        describe("ストーリーズ投稿", story_outcome),
     ])
 
     if ig_outcome == "failure":
         next_action = "Instagram投稿の失敗原因を確認する"
     elif threads_outcome == "failure":
         next_action = "Threads投稿の失敗原因を確認する"
+    elif story_outcome == "success":
+        next_action = "ストーリーズにリンクスタンプを手動で追加する（API非対応のため）"
+    elif story_outcome == "failure":
+        next_action = "ストーリーズ投稿の失敗原因を確認する"
     else:
         next_action = "なし"
 
