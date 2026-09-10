@@ -11,3 +11,7 @@ Thumbs.db
 # Pythonの実行キャッシュ
 __pycache__/
 *.pyc
+
+# shopify候補（画像選定用の一時フォルダ、投稿対象外）
+**/shopify候補/
+
