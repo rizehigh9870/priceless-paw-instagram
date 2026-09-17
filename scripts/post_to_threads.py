@@ -89,6 +89,25 @@ def create_carousel_container(
     return data["id"]
 
 
+def create_text_container(caption: str, access_token: str, threads_user_id: str) -> str:
+    """
+    テキストのみのThreads投稿コンテナを作成する。
+
+    Instagram側をリール（動画）で投稿する日は、フォルダに画像が無い。
+    その場合でもThreadsへの発信を止めないよう、テキストのみで投稿する。
+    """
+    url = f"{THREADS_API_BASE}/{threads_user_id}/threads"
+    payload = {
+        "media_type": "TEXT",
+        "text": caption,
+        "access_token": access_token,
+    }
+    resp = requests.post(url, data=payload, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["id"]
+
+
 def publish_container(creation_id: str, access_token: str, threads_user_id: str) -> dict:
     url = f"{THREADS_API_BASE}/{threads_user_id}/threads_publish"
     payload = {
@@ -130,8 +149,21 @@ def main() -> int:
 
     images = load_images(folder)
     if not images:
-        log(f"エラー: {folder} に画像ファイルが見つかりません。Threads投稿を中止します。")
-        return 1
+        # リールのみの日（動画だけを置いたフォルダ）は画像が無いのが正常。
+        # 失敗扱いにせず、テキストのみでThreadsへ投稿する。
+        log(f"{folder.name} に画像がありません（リールのみの日と判断）。テキストのみでThreads投稿します。")
+        try:
+            creation_id = create_text_container(caption, access_token, threads_user_id)
+            log(f"テキストのみのコンテナ作成完了: creation_id={creation_id}")
+            time.sleep(5)
+            result = publish_container(creation_id, access_token, threads_user_id)
+            log(f"Threads投稿完了！ post_id={result.get('id')}")
+        except requests.HTTPError as e:
+            log(f"Threads投稿でAPIエラーが発生しました: {e}")
+            if e.response is not None:
+                log(f"レスポンス内容: {e.response.text}")
+            return 1
+        return 0
 
     log(f"画像 {len(images)} 枚、キャプション {len(caption)} 文字でThreads投稿を作成します。")
 

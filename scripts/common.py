@@ -25,6 +25,10 @@ LOG_DIR = REPO_ROOT / "log"
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
+# リール（動画）として扱う拡張子。
+# Instagram Graph APIはMP4/MOV（H.264）のみ対応のため、この2種類に限定する。
+VIDEO_EXTENSIONS = {".mp4", ".mov"}
+
 # 日本時間(JST)で「今日」の日付を取得する
 JST = timezone(timedelta(hours=9))
 
@@ -58,6 +62,24 @@ def load_images(folder: Path) -> list[Path]:
         if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
     ]
     return sorted(images, key=lambda p: p.name)
+
+
+def find_video(folder: Path) -> Path | None:
+    """
+    フォルダ内の動画ファイル（リール用）を探す。見つからなければ None。
+
+    運用ルール：動画を入れた日はリール投稿、入れない日は従来どおり画像のカルーセル投稿になる。
+    「3日に1回だけリールにする」といった運用を、フォルダに動画を置くかどうかだけで切り替えられる。
+
+    複数入っている場合はファイル名の昇順で最初の1件を使う（リールは1本のみ投稿可能）。
+    """
+    videos = [
+        p for p in folder.iterdir()
+        if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
+    ]
+    if not videos:
+        return None
+    return sorted(videos, key=lambda p: p.name)[0]
 
 
 def load_text_file(path: Path) -> str | None:
