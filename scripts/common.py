@@ -56,12 +56,30 @@ def find_today_folder() -> Path | None:
 
 
 def load_images(folder: Path) -> list[Path]:
-    """フォルダ内の画像ファイルをファイル名の昇順で取得"""
+    """
+    フォルダ内の画像ファイルをファイル名の昇順で取得。
+    名前が cover で始まる画像はリールのカバー専用なので、ここには含めない
+    （ストーリーズ・Threadsに混ざらないようにするため）。
+    """
     images = [
         p for p in folder.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+        if p.is_file()
+        and p.suffix.lower() in IMAGE_EXTENSIONS
+        and not p.stem.lower().startswith("cover")
     ]
     return sorted(images, key=lambda p: p.name)
+
+
+def find_cover(folder: Path) -> Path | None:
+    """
+    リールのカバー画像（cover.jpg / cover.jpeg）を探す。無ければ None。
+    Instagram Graph APIの cover_url はJPEGのみ対応（8MB以内・9:16推奨）。
+    """
+    for name in ("cover.jpg", "cover.jpeg"):
+        p = folder / name
+        if p.is_file():
+            return p
+    return None
 
 
 def find_video(folder: Path) -> Path | None:

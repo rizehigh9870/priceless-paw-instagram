@@ -44,6 +44,7 @@ import os
 from common import (
     find_today_folder,
     find_video,
+    find_cover,
     load_images,
     load_text_file,
     build_raw_url,
@@ -110,7 +111,7 @@ def create_single_container(image_url: str, caption: str, access_token: str) -> 
     return data["id"]
 
 
-def create_reel_container(video_url: str, caption: str, access_token: str) -> str:
+def create_reel_container(video_url: str, caption: str, access_token: str, cover_url: str | None = None) -> str:
     """
     リール（動画）用のメディアコンテナを作成する。
 
@@ -127,6 +128,9 @@ def create_reel_container(video_url: str, caption: str, access_token: str) -> st
         "share_to_feed": "true",
         "access_token": access_token,
     }
+    if cover_url:
+        # カバー画像（JPEG・公開URL）。指定しなければ動画の先頭フレームになる
+        payload["cover_url"] = cover_url
     resp = requests.post(url, data=payload, timeout=30)
     resp.raise_for_status()
     data = resp.json()
@@ -220,7 +224,20 @@ def main() -> int:
             video_url = build_raw_url(video)
             log(f"動画URL: {video_url}")
 
-            creation_id = create_reel_container(video_url, caption, access_token)
+            cover = find_cover(folder)
+            if cover is not None:
+                cover_url = build_raw_url(cover)
+                log(f"カバー画像を検出しました: {cover.name} → {cover_url}")
+                try:
+                    creation_id = create_reel_container(video_url, caption, access_token, cover_url)
+                except requests.HTTPError as e:
+                    # カバーが原因で投稿全体が止まらないよう、カバーなしでやり直す
+                    log(f"カバー画像付きの作成に失敗したため、カバーなしでやり直します: {e}")
+                    if e.response is not None:
+                        log(f"レスポンス内容: {e.response.text}")
+                    creation_id = create_reel_container(video_url, caption, access_token)
+            else:
+                creation_id = create_reel_container(video_url, caption, access_token)
             log(f"リール用メディアコンテナ作成完了: creation_id={creation_id}")
 
             # 動画はInstagram側のエンコード完了を待ってからでないと公開できない
